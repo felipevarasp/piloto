@@ -1,0 +1,1109 @@
+---
+title: "Reporte de Análisis Piloto"
+subtitle: "Comparación de Tratamientos Basados en Exposición para Trastornos de Ansiedad — Análisis Preliminar: Intención de Tratar y Por Protocolo"
+author: "Felipe I. Varas"
+date: "Junio 2026"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: hide
+    theme: flatly
+    highlight: tango
+    df_print: kable
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo       = TRUE,
+  warning    = FALSE,
+  message    = FALSE,
+  fig.width  = 10,
+  fig.height = 6,
+  fig.align  = "center"
+)
+```
+
+```{r paquetes}
+library(tidyverse)
+library(lme4)
+library(lmerTest)
+library(broom.mixed)
+library(psych)
+library(patchwork)
+library(mice)
+library(kableExtra)
+```
+
+> **Nota:** Los grupos de tratamiento se identifican como Grupo 0 y Grupo 1 a lo largo del reporte.
+
+---
+
+## 1. Introducción
+
+Este reporte presenta los resultados del análisis piloto de un ensayo clínico aleatorizado que compara dos tratamientos basados en exposición para trastornos de ansiedad. Los tratamientos son referidos en este reporte como **Grupo 0** y **Grupo 1**, asegurando el análisis ciego de los datos.
+
+El piloto reclutó 17 participantes con diagnósticos primarios de trastornos de ansiedad, quienes recibieron hasta 10 sesiones de tratamiento semanal. Los datos provienen de una exportación con medidas repetidas en cada sesión.
+
+El propósito de este análisis piloto es:
+
+- Evaluar si ambos tratamientos producen mejorías sintomáticas significativas a lo largo del tiempo.
+- Explorar si existe evidencia preliminar de eficacia diferencial entre los dos tratamientos.
+- Identificar patrones de deserción que sean relevantes e informativos para el estudio completo.
+- Evaluar la robustez de los hallazgos mediante análisis de sensibilidad.
+
+---
+
+## 2. Método
+
+### 2.1 Diseño
+
+Ensayo clínico aleatorizado con dos condiciones de tratamiento activo (Grupo 0 y Grupo 1). Se realizaron dos tipos de análisis:
+
+- **Intención de Tratar (ITT):** incluye todos los participantes con al menos una medición, usando todos los datos disponibles independientemente de cuántas sesiones completaron.
+- **Por Protocolo (PP):** incluye solo los 9 participantes que completaron las 10 sesiones de tratamiento más la evaluación de línea base (11 mediciones totales).
+
+### 2.2 Instrumentos y administración
+
+**En todas las sesiones (baseline + sesiones 1–9 + cierre, hasta 11 mediciones):**
+
+```{r tabla-instrumentos-sesiones, echo=FALSE}
+tibble::tribble(
+  ~Instrumento,  ~Constructo,                     ~Ítems, ~Rango,
+  "CORE-OM",     "Malestar psicológico global",   34,     "0–4 (media)",
+  "BAI",         "Síntomas de ansiedad",           21,     "0–63",
+  "LSAS",        "Ansiedad social (solo dg=1)",    48,     "0–144",
+  "GAD-7",       "TAG (solo dg=3)",                7,      "0–21",
+  "DSM-5 Phobia","Fobia específica (solo dg=4)",   10,     "0–40",
+  "PAS",         "Pánico/agorafobia (solo dg=2)",  13,     "0–52"
+) |>
+  kable(caption = "Instrumentos administrados en todas las sesiones") |>
+  kable_styling(bootstrap_options = c("striped","hover","condensed"), full_width = FALSE)
+```
+
+**Solo en baseline y cierre:**
+
+```{r tabla-instrumentos-bl-cierre, echo=FALSE}
+tibble::tribble(
+  ~Instrumento, ~Constructo,                      ~Ítems, ~Rango,
+  "STAI-E",     "Ansiedad estado",                20,     "0–60",
+  "STAI-R",     "Ansiedad rasgo",                 20,     "0–60",
+  "BDI",        "Depresión",                      19,     "0–57",
+  "OASIS",      "Severidad e impacto de ansiedad", 5,     "0–20",
+  "QOLS",       "Calidad de vida",                16,     "16–112"
+) |>
+  kable(caption = "Instrumentos administrados en baseline y cierre") |>
+  kable_styling(bootstrap_options = c("striped","hover","condensed"), full_width = FALSE)
+```
+
+**Medición única:**
+
+```{r tabla-instrumentos-unicos, echo=FALSE}
+tibble::tribble(
+  ~Instrumento, ~Momento,   ~Propósito,
+  "ACE-IQ",     "Baseline", "Experiencias adversas en la infancia",
+  "CSQ-8",      "Cierre",   "Satisfacción con el tratamiento"
+) |>
+  kable() |>
+  kable_styling(bootstrap_options = c("striped","hover","condensed"), full_width = FALSE)
+```
+
+### 2.3 Outcomes primarios y estandarización
+
+Los tres outcomes longitudinales son CORE-OM, BAI y la escala diagnóstico-específica. Para hacer comparables los distintos instrumentos diagnósticos, se estandarizaron en **puntajes Z** usando la media y desviación estándar del baseline:
+
+- **CORE-OM (z)** y **BAI (z):** estandarizados usando el baseline de toda la muestra.
+- **Escala diagnóstica (z):** estandarizada dentro de cada grupo diagnóstico usando su propio baseline. Un z-score de 0 representa la media basal de cada diagnóstico; valores negativos representan mejoría.
+
+### 2.4 Modelo estadístico
+
+Se utilizaron modelos lineales mixtos (MLM) con la siguiente especificación:
+
+$$\text{outcome} \sim \text{sesion} + \text{grupo} + \text{sesion} \times \text{grupo} + (1 \mid \text{participante})$$
+
+Donde:
+- `sesion` (0–10): efecto lineal del tiempo
+- `grupo` (0/1): diferencia de nivel entre grupos
+- `sesion:grupo`: interacción tiempo × grupo — test principal de eficacia diferencial
+- `(1 | participante)`: intercepto aleatorio por participante
+
+Los modelos se ajustaron con máxima verosimilitud. Los p-valores se calcularon con grados de libertad de Satterthwaite (`lmerTest`). Software: R 4.5.1 con `lme4`, `lmerTest`, `mice`, `psych`, `tidyverse`.
+
+---
+
+## 3. Carga y preparación de datos
+
+```{r carga-datos}
+df_raw <- read.csv2(
+  "MatiasConsent-InformeDeDatosSinSeg_DATA_2026-05-25_1503.csv",
+  na.strings = c("", "NA")
+)
+
+# Mapeo eventos → sesión numérica
+event_map <- c(
+  consent_arm_1 = 0, semana_1_arm_1 = 1, semana_2_arm_1 = 2,
+  semana_3_arm_1 = 3, semana_4_arm_1 = 4, semana_5_arm_1 = 5,
+  semana_6_arm_1 = 6, semana_7_arm_1 = 7, semana_8_arm_1 = 8,
+  semana_9_arm_1 = 9, fin_del_estudio_arm_1 = 10
+)
+df_raw$sesion <- event_map[df_raw$redcap_event_name]
+
+# Participante sin datos de escalas — solo para descriptivos de deserción
+sin_datos <- "b5ee134463d76454cb6b938bd5d61a68"
+
+# Propagar variables de participante a todas sus filas
+df_raw <- df_raw |>
+  group_by(study_id) |>
+  mutate(
+    genero              = first(na.omit(genero)),
+    dg                  = first(na.omit(dg)),
+    randomization_group = first(na.omit(randomization_group))
+  ) |>
+  ungroup()
+
+# Etiquetas
+df_raw$dg_label <- factor(df_raw$dg, levels = 1:4,
+  labels = c("Ansiedad Social","Pánico/Agorafobia","TAG","Fobia Específica"))
+df_raw$grupo <- factor(df_raw$randomization_group,
+  levels = c(0,1), labels = c("Grupo 0","Grupo 1"))
+```
+
+### Puntuación de instrumentos
+
+```{r scoring}
+# ── STAI-E ────────────────────────────────────────────────────────────────────
+stai_e_items <- paste0("stai_e_", 1:20)
+stai_e_inv   <- c(1, 2, 5, 8, 10, 11, 15, 16, 19, 20)
+stai_e_dir   <- c(3, 4, 6, 7, 9, 12, 13, 14, 17, 18)
+df_raw$stai_e_positivo <- rowSums(df_raw[, paste0("stai_e_", stai_e_inv)], na.rm = TRUE)
+df_raw$stai_e_negativo <- rowSums(df_raw[, paste0("stai_e_", stai_e_dir)], na.rm = TRUE)
+df_staie <- df_raw[, stai_e_items]
+for (i in stai_e_inv) df_staie[[paste0("stai_e_", i)]] <- 3 - df_staie[[paste0("stai_e_", i)]]
+df_raw$stai_e_total <- rowSums(df_staie, na.rm = TRUE)
+
+# ── STAI-R ────────────────────────────────────────────────────────────────────
+stai_r_items <- paste0("stai_r_", 1:20)
+stai_r_inv   <- c(1, 6, 7, 10, 13, 16, 19)
+stai_r_dir   <- c(2, 3, 4, 5, 8, 9, 11, 12, 14, 15, 17, 18, 20)
+df_raw$stai_r_positivo <- rowSums(df_raw[, paste0("stai_r_", stai_r_inv)], na.rm = TRUE)
+df_raw$stai_r_negativo <- rowSums(df_raw[, paste0("stai_r_", stai_r_dir)], na.rm = TRUE)
+df_stair <- df_raw[, stai_r_items]
+for (i in stai_r_inv) df_stair[[paste0("stai_r_", i)]] <- 3 - df_stair[[paste0("stai_r_", i)]]
+df_raw$stai_r_total <- rowSums(df_stair, na.rm = TRUE)
+
+# ── CORE-OM ───────────────────────────────────────────────────────────────────
+core_items <- paste0("core_om_", 1:34)
+core_inv   <- c(3, 4, 7, 12, 19, 21, 31, 32)
+df_core    <- df_raw[, core_items]
+for (i in core_inv) df_core[[paste0("core_om_", i)]] <- 4 - df_core[[paste0("core_om_", i)]]
+df_raw$core_total    <- rowSums(df_core,  na.rm = TRUE)
+df_raw$core_media    <- rowMeans(df_core, na.rm = TRUE)
+core_wellbeing <- c(4, 14, 17, 31)
+core_problems  <- c(2, 5, 8, 11, 13, 15, 18, 20, 23, 27, 28, 30)
+core_function  <- c(1, 3, 7, 10, 12, 19, 21, 25, 26, 29, 32, 33)
+core_risk      <- c(6, 9, 16, 22, 24, 34)
+df_raw$core_wellbeing <- rowMeans(df_core[, paste0("core_om_", core_wellbeing)], na.rm = TRUE)
+df_raw$core_problems  <- rowMeans(df_core[, paste0("core_om_", core_problems)],  na.rm = TRUE)
+df_raw$core_function  <- rowMeans(df_core[, paste0("core_om_", core_function)],  na.rm = TRUE)
+df_raw$core_risk      <- rowMeans(df_core[, paste0("core_om_", core_risk)],      na.rm = TRUE)
+
+# ── BAI ───────────────────────────────────────────────────────────────────────
+bai_items <- paste0("bai_", 1:21)
+df_raw$bai_total <- rowSums(df_raw[, bai_items], na.rm = TRUE)
+
+# ── BDI (sin bdi_s_2) ─────────────────────────────────────────────────────────
+bdi_items <- c("bdi_a","bdi_b","bdi_c","bdi_d","bdi_e","bdi_f","bdi_g","bdi_h",
+               "bdi_i","bdi_j","bdi_l","bdi_n","bdi_o","bdi_p","bdi_q","bdi_r",
+               "bdi_s","bdi_t","bdi_u")
+df_raw$bdi_total <- rowSums(df_raw[, bdi_items], na.rm = TRUE)
+
+# ── OASIS ─────────────────────────────────────────────────────────────────────
+df_raw$oasis_total <- rowSums(df_raw[, paste0("oasis_", 1:5)], na.rm = TRUE)
+
+# ── QOLS ──────────────────────────────────────────────────────────────────────
+qols_f1 <- c(7,8,9,10,12,13,14); qols_f2 <- c(2,11,15,16); qols_f3 <- c(1,3,4,5,6)
+df_raw$qols_total <- rowSums(df_raw[, paste0("qols_", 1:16)], na.rm = TRUE)
+df_raw$qols_f1    <- rowSums(df_raw[, paste0("qols_", qols_f1)], na.rm = TRUE)
+df_raw$qols_f2    <- rowSums(df_raw[, paste0("qols_", qols_f2)], na.rm = TRUE)
+df_raw$qols_f3    <- rowSums(df_raw[, paste0("qols_", qols_f3)], na.rm = TRUE)
+
+# ── LSAS ──────────────────────────────────────────────────────────────────────
+df_raw$lsas_miedo     <- rowSums(df_raw[, paste0("lsas_m_", 1:24)], na.rm = TRUE)
+df_raw$lsas_evitacion <- rowSums(df_raw[, paste0("lsas_e_", 1:24)], na.rm = TRUE)
+df_raw$lsas_total     <- df_raw$lsas_miedo + df_raw$lsas_evitacion
+
+# ── GAD-7 (sin gad_8) ─────────────────────────────────────────────────────────
+df_raw$gad_total <- rowSums(df_raw[, paste0("gad_", 1:7)], na.rm = TRUE)
+
+# ── DSM-5 Phobia (sin dsm5_phobia_0) ─────────────────────────────────────────
+df_raw$phobia_total <- rowSums(df_raw[, paste0("dsm5_phobia_", 1:10)], na.rm = TRUE)
+
+# ── PAS (sin pas_u) ───────────────────────────────────────────────────────────
+pas_items <- c("pas_a1","pas_a2","pas_a3","pas_b1","pas_b2","pas_b3",
+               "pas_c1","pas_c2","pas_d1","pas_d2","pas_d3","pas_e1","pas_e2")
+df_raw$pas_total <- rowSums(df_raw[, pas_items], na.rm = TRUE)
+
+# ── ACE-IQ y CSQ-8 ───────────────────────────────────────────────────────────
+df_raw$aceiq_total <- rowSums(df_raw[, paste0("aceiq_", 1:10)], na.rm = TRUE)
+df_raw$csq_total   <- rowSums(df_raw[, paste0("csq_",   1:8)],  na.rm = TRUE)
+
+# ── Escala diagnóstica unificada ─────────────────────────────────────────────
+df_raw <- df_raw |>
+  mutate(diag_raw = case_when(
+    dg == 1 ~ lsas_total, dg == 2 ~ pas_total,
+    dg == 3 ~ gad_total,  dg == 4 ~ phobia_total,
+    TRUE    ~ NA_real_
+  ))
+```
+
+### Estandarización (z-scores)
+
+```{r z-scores}
+# df_anal: excluye al participante sin datos para todos los análisis estadísticos
+df_anal <- df_raw |> filter(study_id != sin_datos)
+
+# Filtrar también los dataframes auxiliares de ítems para que coincidan con df_anal
+df_core  <- df_core[df_raw$study_id  != sin_datos, ]
+df_staie <- df_staie[df_raw$study_id != sin_datos, ]
+df_stair <- df_stair[df_raw$study_id != sin_datos, ]
+
+# bl: baseline sin el participante sin datos (para medias, DEs, modelos)
+bl <- df_anal |> filter(sesion == 0)
+
+m_core <- mean(bl$core_media, na.rm = TRUE)
+s_core <- sd(bl$core_media,   na.rm = TRUE)
+m_bai  <- mean(bl$bai_total,  na.rm = TRUE)
+s_bai  <- sd(bl$bai_total,    na.rm = TRUE)
+
+df_anal <- df_anal |>
+  mutate(core_z = (core_media - m_core) / s_core,
+         bai_z  = (bai_total  - m_bai)  / s_bai)
+
+# Z diagnóstico: dentro de cada diagnóstico
+df_anal <- df_anal |>
+  group_by(dg) |>
+  mutate(diag_z = {
+    m_d <- mean(diag_raw[sesion == 0], na.rm = TRUE)
+    s_d <- sd(diag_raw[sesion == 0],   na.rm = TRUE)
+    if (is.na(s_d) | s_d == 0) diag_raw - m_d else (diag_raw - m_d) / s_d
+  }) |>
+  ungroup()
+
+# Z LSAS separados (miedo y evitación)
+df_anal <- df_anal |>
+  group_by(dg) |>
+  mutate(
+    lsas_miedo_z = {
+      m <- mean(lsas_miedo[sesion == 0], na.rm = TRUE)
+      s <- sd(lsas_miedo[sesion == 0],   na.rm = TRUE)
+      if (is.na(s) | s == 0) lsas_miedo - m else (lsas_miedo - m) / s
+    },
+    lsas_evitacion_z = {
+      m <- mean(lsas_evitacion[sesion == 0], na.rm = TRUE)
+      s <- sd(lsas_evitacion[sesion == 0],   na.rm = TRUE)
+      if (is.na(s) | s == 0) lsas_evitacion - m else (lsas_evitacion - m) / s
+    }
+  ) |>
+  ungroup()
+
+# bl_full: todos los participantes (para distribución de diagnóstico, grupo, género)
+bl_full <- df_raw |> filter(sesion == 0)
+```
+
+---
+
+## 4. Muestra y características basales
+
+### 4.1 Composición de la muestra
+
+```{r composicion-muestra}
+# Tablas de frecuencia usan bl_full (incluye al participante sin datos de escalas)
+table(bl_full$dg_label) |>
+  as.data.frame() |>
+  rename(Diagnóstico = Var1, N = Freq) |>
+  mutate(`%` = sprintf("%.1f%%", 100 * N / sum(N))) |>
+  kable(caption = "Distribución por diagnóstico (N = 17)") |>
+  kable_styling(bootstrap_options = c("striped","hover","condensed"), full_width = FALSE)
+
+table(bl_full$grupo) |>
+  as.data.frame() |>
+  rename(Grupo = Var1, N = Freq) |>
+  mutate(`%` = sprintf("%.1f%%", 100 * N / sum(N))) |>
+  kable(caption = "Distribución por grupo de tratamiento (N = 17)") |>
+  kable_styling(bootstrap_options = c("striped","hover","condensed"), full_width = FALSE)
+```
+
+El género fue predominantemente categoría 1 (n=15, 88.2%), con un participante en cada una de las categorías 2 y 3.
+
+### 4.2 Consistencia interna
+
+```{r cronbach}
+alpha_core  <- psych::alpha(df_core[df_anal$sesion == 0, ], check.keys = FALSE)$total$raw_alpha
+alpha_bai   <- psych::alpha(bl[, bai_items],               check.keys = FALSE)$total$raw_alpha
+alpha_staie <- psych::alpha(df_staie[df_anal$sesion == 0,], check.keys = FALSE)$total$raw_alpha
+alpha_stair <- psych::alpha(df_stair[df_anal$sesion == 0,], check.keys = FALSE)$total$raw_alpha
+
+tibble::tribble(
+  ~Escala,   ~Alpha,
+  "CORE-OM", round(alpha_core,  3),
+  "BAI",     round(alpha_bai,   3),
+  "STAI-E",  round(alpha_staie, 3),
+  "STAI-R",  round(alpha_stair, 3)
+) |>
+  kable(caption = "Alpha de Cronbach (baseline)") |>
+  kable_styling(bootstrap_options = c("striped","hover","condensed"), full_width = FALSE) |>
+  row_spec(4, background = "#fff3cd")  # STAI-R destacado por alpha < .80
+```
+
+El CORE-OM, BAI y STAI-E muestran consistencia interna buena a excelente. El STAI-R (.742) es el único instrumento por debajo de .80.
+
+### 4.3 Descriptivos basales por grupo
+
+```{r descriptivos-basales}
+vars_bl <- c("stai_e_total","stai_r_total","core_media","bai_total",
+             "bdi_total","oasis_total","qols_total","aceiq_total")
+etiq_bl <- c("STAI-E","STAI-R","CORE-OM media","BAI","BDI","OASIS","QOLS","ACE-IQ")
+
+tabla_bl <- map_dfr(seq_along(vars_bl), function(i) {
+  v  <- vars_bl[i]
+  g0 <- bl[[v]][bl$randomization_group == 0]
+  g1 <- bl[[v]][bl$randomization_group == 1]
+  tt <- t.test(g0, g1)
+  tibble(
+    Variable   = etiq_bl[i],
+    `Total M (DE)` = sprintf("%.2f (%.2f)",
+      mean(bl[[v]], na.rm=TRUE), sd(bl[[v]], na.rm=TRUE)),
+    `Grupo 0 M (DE)` = sprintf("%.2f (%.2f)",
+      mean(g0, na.rm=TRUE), sd(g0, na.rm=TRUE)),
+    `Grupo 1 M (DE)` = sprintf("%.2f (%.2f)",
+      mean(g1, na.rm=TRUE), sd(g1, na.rm=TRUE)),
+    p = round(tt$p.value, 3)
+  )
+})
+
+tabla_bl |>
+  kable(caption = "Comparación de grupos al baseline — medias y DEs (N = 16, excluye participante sin datos de escalas)") |>
+  kable_styling(bootstrap_options = c("striped","hover","condensed")) |>
+  footnote(general = "ACE-IQ: Mann-Whitney U = 45.5, p = .166")
+```
+
+Se observó una diferencia estadísticamente significativa entre grupos en el **BAI al baseline** (Grupo 0: M = 37.00, Grupo 1: M = 22.38; t = 3.01, p = .011), con el Grupo 0 presentando mayor severidad de ansiedad al inicio. El resto de los outcomes no mostró diferencias significativas entre grupos. Esta desigualdad basal en el BAI es consistente con el efecto de nivel de grupo observado en los modelos longitudinales (β = −1.270 en el modelo ITT), y sugiere que el Grupo 0 partió con mayor ansiedad — no necesariamente que el tratamiento tuvo un efecto diferencial entre grupos.
+
+### 4.4 Subescalas CORE-OM al baseline
+
+```{r subescalas-core-bl}
+bl |>
+  summarise(
+    `WB M`  = round(mean(core_wellbeing, na.rm=TRUE), 2),
+    `WB DE` = round(sd(core_wellbeing,   na.rm=TRUE), 2),
+    `PS M`  = round(mean(core_problems,  na.rm=TRUE), 2),
+    `PS DE` = round(sd(core_problems,    na.rm=TRUE), 2),
+    `FN M`  = round(mean(core_function,  na.rm=TRUE), 2),
+    `FN DE` = round(sd(core_function,    na.rm=TRUE), 2),
+    `RK M`  = round(mean(core_risk,      na.rm=TRUE), 2),
+    `RK DE` = round(sd(core_risk,        na.rm=TRUE), 2)
+  ) |>
+  pivot_longer(everything(), names_to = "Estadístico", values_to = "Valor") |>
+  mutate(Subescala = rep(c("Wellbeing","Problems","Functioning","Risk"), each=2),
+         Medida    = rep(c("M","DE"), 4)) |>
+  select(Subescala, Medida, Valor) |>
+  pivot_wider(names_from = Medida, values_from = Valor) |>
+  kable(caption = "Subescalas CORE-OM en baseline") |>
+  kable_styling(bootstrap_options = c("striped","hover","condensed"), full_width = FALSE)
+```
+
+---
+
+## 5. Deserción
+
+```{r desercion}
+sesiones_pp <- df_anal |>
+  group_by(study_id) |>
+  summarise(n_sesiones = n(), ultima_sesion = max(sesion), .groups = "drop")
+
+# Agregar manualmente al participante sin datos:
+# solo tiene sesion=0, nunca completó, ultima_sesion=0
+sesiones_pp <- bind_rows(
+  sesiones_pp,
+  tibble(study_id = sin_datos, n_sesiones = 1L, ultima_sesion = 0)
+)
+
+# bl_attricion incluye al participante sin datos — solo para tablas de attrición
+bl_attricion <- df_raw |>
+  filter(sesion == 0) |>
+  left_join(sesiones_pp, by = "study_id") |>
+  mutate(completo = n_sesiones == 11)
+
+# bl (para todo lo demás) también necesita completo
+bl <- bl |>
+  left_join(sesiones_pp, by = "study_id") |>
+  mutate(completo = n_sesiones == 11)
+
+ids_completos <- bl$study_id[bl$completo]
+df_pp <- df_anal |> filter(study_id %in% ids_completos)
+```
+
+De los 17 participantes, **9 completaron** todas las sesiones (52.9%) y **8 abandonaron**.
+
+```{r tabla-desercion}
+table(bl_attricion$grupo, bl_attricion$completo) |>
+  as.data.frame() |>
+  rename(Grupo = Var1, Completó = Var2, N = Freq) |>
+  mutate(Completó = ifelse(as.logical(as.character(Completó)), "Completó", "Abandonó")) |>
+  pivot_wider(names_from = Completó, values_from = N) |>
+  mutate(`% Abandono` = sprintf("%.1f%%", 100 * Abandonó / (Abandonó + Completó))) |>
+  kable(caption = "Deserción por grupo") |>
+  kable_styling(bootstrap_options = c("striped","hover","condensed"), full_width = FALSE)
+
+table(bl_attricion$dg_label, bl_attricion$completo) |>
+  as.data.frame() |>
+  rename(Diagnóstico = Var1, Completó = Var2, N = Freq) |>
+  mutate(Completó = ifelse(as.logical(as.character(Completó)), "Completó", "Abandonó")) |>
+  pivot_wider(names_from = Completó, values_from = N) |>
+  kable(caption = "Deserción por diagnóstico") |>
+  kable_styling(bootstrap_options = c("striped","hover","condensed"), full_width = FALSE)
+```
+
+### 5.1 Predictores de deserción
+
+```{r predictores-desercion}
+predictores <- c("randomization_group","dg","bai_total","core_media","aceiq_total")
+etiq_pred   <- c("Grupo tratamiento","Diagnóstico","BAI basal","CORE-OM basal","ACE-IQ")
+
+map_dfr(seq_along(predictores), function(i) {
+  v <- predictores[i]
+  if (v %in% c("randomization_group","dg")) {
+    ft <- fisher.test(table(bl_attricion[[v]], bl_attricion$completo))
+    tibble(Predictor = etiq_pred[i], Test = "Fisher exacto",
+           Estadístico = NA, p = round(ft$p.value, 3))
+  } else {
+    tt <- t.test(bl[[v]] ~ bl$completo)
+    tibble(Predictor = etiq_pred[i], Test = "t-test",
+           Estadístico = round(tt$statistic, 2), p = round(tt$p.value, 3))
+  }
+}) |>
+  kable(caption = "Predictores de deserción") |>
+  kable_styling(bootstrap_options = c("striped","hover","condensed"), full_width = FALSE)
+```
+
+Ningún predictor alcanzó significancia estadística. El **BAI basal** es el más cercano (p = .084), en dirección paradójica: los que completaron tenían más ansiedad al inicio (M = 34.22) que los que abandonaron (M = 23.86). Mayor severidad inicial parece asociarse con mayor adherencia, posiblemente por mayor motivación para el cambio, aunque esta diferencia no es estadísticamente significativa con el N actual.
+
+---
+
+## 6. Modelos longitudinales
+
+```{r funcion-mlm}
+colores          <- c("Grupo 0" = "#2166AC", "Grupo 1" = "#D6604D")
+etiquetas_sesion <- c("BL","S1","S2","S3","S4","S5","S6","S7","S8","S9","Fin")
+
+correr_mlm <- function(datos, outcome_col, etiqueta) {
+  sub <- datos |>
+    select(study_id, sesion, grupo = randomization_group, y = all_of(outcome_col)) |>
+    drop_na(y)
+  modelo <- lmer(y ~ sesion + grupo + sesion:grupo + (1 | study_id),
+                 data = sub, REML = FALSE)
+  coefs <- as.data.frame(summary(modelo)$coefficients)
+  coefs$CI_low  <- coefs$Estimate - 1.96 * coefs$`Std. Error`
+  coefs$CI_high <- coefs$Estimate + 1.96 * coefs$`Std. Error`
+  list(modelo = modelo, coefs = coefs,
+       n_obs = nrow(sub), n_part = n_distinct(sub$study_id),
+       aic = round(AIC(modelo), 1), etiqueta = etiqueta)
+}
+
+tabla_mlm <- function(res) {
+  res$coefs |>
+    select(Estimate, `Std. Error`, CI_low, CI_high, df, `Pr(>|t|)`) |>
+    round(3) |>
+    rownames_to_column("Término") |>
+    mutate(Término = c("Intercepto","Sesión","Grupo","Sesión × Grupo")) |>
+    kable(caption = paste0(res$etiqueta,
+      " — N obs = ", res$n_obs, ", N participantes = ", res$n_part,
+      ", AIC = ", res$aic),
+      col.names = c("Término","β","SE","IC 2.5%","IC 97.5%","df","p")) |>
+    kable_styling(bootstrap_options = c("striped","hover","condensed")) |>
+    row_spec(2, bold = TRUE, background = "#d4edda")
+}
+```
+
+### 6.1 Intención de Tratar (ITT, N=17)
+
+```{r mlm-itt}
+r_core_itt <- correr_mlm(df_anal, "core_z",  "CORE-OM (z) – ITT")
+r_bai_itt  <- correr_mlm(df_anal, "bai_z",   "BAI (z) – ITT")
+r_diag_itt <- correr_mlm(df_anal, "diag_z",  "Escala diagnóstica (z) – ITT")
+
+m_core_itt <- r_core_itt$modelo
+m_bai_itt  <- r_bai_itt$modelo
+m_diag_itt <- r_diag_itt$modelo
+
+tabla_mlm(r_core_itt)
+tabla_mlm(r_bai_itt)
+tabla_mlm(r_diag_itt)
+```
+
+### 6.2 Por Protocolo (PP, N=9 completadores)
+
+```{r mlm-pp}
+r_core_pp <- correr_mlm(df_pp, "core_z",  "CORE-OM (z) – PP")
+r_bai_pp  <- correr_mlm(df_pp, "bai_z",   "BAI (z) – PP")
+r_diag_pp <- correr_mlm(df_pp, "diag_z",  "Escala diagnóstica (z) – PP")
+
+m_core_pp <- r_core_pp$modelo
+m_bai_pp  <- r_bai_pp$modelo
+m_diag_pp <- r_diag_pp$modelo
+
+tabla_mlm(r_core_pp)
+tabla_mlm(r_bai_pp)
+tabla_mlm(r_diag_pp)
+```
+
+### 6.3 Interpretación
+
+Los tres outcomes muestran mejorías significativas y consistentes en ambos análisis. El efecto del tiempo en escala original es:
+
+- **CORE-OM:** ~0.066 puntos por sesión → reducción de ~0.66 puntos en 10 sesiones
+- **BAI:** ~1.59 puntos por sesión → reducción de ~15.9 puntos en 10 sesiones
+- **Escala diagnóstica:** mayor efecto por sesión en z-scores (β = −0.254)
+
+El Grupo 0 muestra niveles consistentemente más altos en BAI (efecto de nivel, no de trayectoria; β = −1.270, p < .001). Ninguna interacción tiempo × grupo alcanzó significancia estadística — no hay evidencia de eficacia diferencial con el N actual.
+
+---
+
+## 7. Trayectorias sesión a sesión
+
+```{r tabla-trayectorias}
+df_anal |>
+  group_by(sesion) |>
+  summarise(
+    `n CORE` = sum(!is.na(core_media)),
+    `CORE M`  = round(mean(core_media, na.rm=TRUE), 2),
+    `CORE DE` = round(sd(core_media,   na.rm=TRUE), 2),
+    `n BAI`  = sum(!is.na(bai_total)),
+    `BAI M`  = round(mean(bai_total,   na.rm=TRUE), 2),
+    `BAI DE` = round(sd(bai_total,     na.rm=TRUE), 2),
+    `n Diag` = sum(!is.na(diag_z)),
+    `Diag z M` = round(mean(diag_z,   na.rm=TRUE), 2),
+    .groups = "drop"
+  ) |>
+  mutate(Sesión = etiquetas_sesion) |>
+  select(Sesión, everything(), -sesion) |>
+  kable(caption = "Medias observadas por sesión (ITT)") |>
+  kable_styling(bootstrap_options = c("striped","hover","condensed"))
+```
+
+### Figuras de trayectorias
+
+```{r fig-trayectorias, fig.height=10}
+medias_por_sesion <- function(datos, col) {
+  datos |>
+    filter(!is.na(.data[[col]])) |>
+    group_by(sesion, grupo) |>
+    summarise(M  = mean(.data[[col]], na.rm=TRUE),
+              SE = sd(.data[[col]],   na.rm=TRUE) / sqrt(n()),
+              .groups = "drop")
+}
+
+spaghetti <- function(datos, col, y_label, titulo) {
+  med <- medias_por_sesion(datos, col)
+  ggplot() +
+    geom_line(data = datos |> filter(!is.na(.data[[col]])),
+              aes(x=sesion, y=.data[[col]], group=study_id, color=grupo),
+              alpha=0.2, linewidth=0.5) +
+    geom_ribbon(data = med,
+                aes(x=sesion, ymin=M-SE, ymax=M+SE, fill=grupo), alpha=0.2) +
+    geom_line(data=med,  aes(x=sesion, y=M, color=grupo), linewidth=1.4) +
+    geom_point(data=med, aes(x=sesion, y=M, color=grupo), size=2.5) +
+    scale_x_continuous(breaks=0:10, labels=etiquetas_sesion) +
+    scale_color_manual(values=colores) +
+    scale_fill_manual(values=colores) +
+    labs(title=titulo,
+         subtitle="Líneas translúcidas = individuos; línea gruesa = media grupal (±1 SE)",
+         x="Sesión", y=y_label, color=NULL, fill=NULL) +
+    theme_minimal(base_size=12) +
+    theme(legend.position="bottom")
+}
+
+g_core <- spaghetti(df_anal, "core_media", "CORE-OM media (0–4)", "CORE-OM por sesión")
+g_bai  <- spaghetti(df_anal, "bai_total",  "BAI total (0–63)",    "BAI por sesión")
+g_core / g_bai
+```
+
+```{r fig-subescalas-core}
+df_anal |>
+  select(sesion, grupo,
+         "Well-being"  = core_wellbeing,
+         "Problems"    = core_problems,
+         "Functioning" = core_function,
+         "Risk"        = core_risk) |>
+  pivot_longer(cols = c("Well-being","Problems","Functioning","Risk"),
+               names_to = "Subescala", values_to = "valor") |>
+  filter(!is.na(valor)) |>
+  group_by(sesion, Subescala) |>
+  summarise(M = mean(valor, na.rm=TRUE), .groups="drop") |>
+  ggplot(aes(x=sesion, y=M, color=Subescala)) +
+  geom_line(linewidth=1.1) +
+  geom_point(size=2) +
+  scale_x_continuous(breaks=0:10, labels=etiquetas_sesion) +
+  labs(title="CORE-OM: subescalas por sesión",
+       x="Sesión", y="Media (0–4)", color="Subescala") +
+  theme_minimal(base_size=12)
+```
+
+```{r fig-diagnostica}
+df_anal |>
+  filter(!is.na(diag_z)) |>
+  group_by(sesion, grupo, dg_label) |>
+  summarise(M  = mean(diag_z, na.rm = TRUE),
+            SE = sd(diag_z,   na.rm = TRUE) / sqrt(n()),
+            .groups = "drop") |>
+  ggplot(aes(x = sesion, y = M, color = grupo, fill = grupo)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+  geom_ribbon(aes(ymin = M - SE, ymax = M + SE), alpha = 0.15) +
+  geom_line(linewidth = 1.1) +
+  geom_point(size = 2.5) +
+  facet_wrap(~ dg_label, ncol = 2, scales = "free_y") +
+  scale_x_continuous(breaks = 0:10, labels = etiquetas_sesion) +
+  scale_color_manual(values = colores) +
+  scale_fill_manual(values  = colores) +
+  labs(title    = "Escala diagnóstica por sesión y diagnóstico (z-score)",
+       subtitle = "0 = media basal; valores negativos = mejoría; banda = ±1 SE",
+       x = "Sesión", y = "Z-score", color = NULL, fill = NULL) +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom",
+        axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+---
+
+## 8. Comparaciones pre-post (completadores)
+
+```{r prepost}
+tabla_prepost <- function(datos, col, etiqueta) {
+  pre  <- datos |> filter(sesion==0)  |> select(study_id, pre  = all_of(col))
+  post <- datos |> filter(sesion==10) |> select(study_id, post = all_of(col))
+  pares <- inner_join(pre, post, by="study_id") |> drop_na()
+  dif <- pares$post - pares$pre
+  tt  <- t.test(pares$pre, pares$post, paired=TRUE)
+  tibble(Outcome = etiqueta, N = nrow(pares),
+    `M pre (DE)` = sprintf("%.2f (%.2f)", mean(pares$pre), sd(pares$pre)),
+    `M post (DE)`= sprintf("%.2f (%.2f)", mean(pares$post), sd(pares$post)),
+    `Δ`          = round(mean(dif), 2),
+    d            = round(mean(dif)/sd(dif), 2),
+    t            = round(tt$statistic, 2),
+    p            = round(tt$p.value, 3))
+}
+
+bind_rows(
+  tabla_prepost(df_pp, "core_media",    "CORE-OM media"),
+  tabla_prepost(df_pp, "core_wellbeing","CORE-OM Wellbeing"),
+  tabla_prepost(df_pp, "core_problems", "CORE-OM Problems"),
+  tabla_prepost(df_pp, "core_function", "CORE-OM Functioning"),
+  tabla_prepost(df_pp, "core_risk",     "CORE-OM Risk"),
+  tabla_prepost(df_pp, "bai_total",     "BAI"),
+  tabla_prepost(df_pp, "stai_e_total",  "STAI-E"),
+  tabla_prepost(df_pp, "stai_r_total",  "STAI-R"),
+  tabla_prepost(df_pp, "bdi_total",     "BDI"),
+  tabla_prepost(df_pp, "oasis_total",   "OASIS"),
+  tabla_prepost(df_pp, "qols_total",    "QOLS total"),
+  tabla_prepost(df_pp, "qols_f1",       "QOLS Factor 1"),
+  tabla_prepost(df_pp, "qols_f2",       "QOLS Factor 2"),
+  tabla_prepost(df_pp, "qols_f3",       "QOLS Factor 3")
+) |>
+  kable(caption = "Comparaciones pre–post (completadores, n = 9)") |>
+  kable_styling(bootstrap_options = c("striped","hover","condensed")) |>
+  footnote(general = "d = d de Cohen para medidas repetidas (Δ/DE_dif). QOLS: mayor = mejor calidad de vida.")
+```
+
+Todos los outcomes de síntomas mejoraron significativamente. Los tamaños de efecto son grandes a muy grandes (|d| entre 0.77 y 2.25). La calidad de vida (QOLS) mejoró significativamente en el total (p = .049), aunque ningún factor individual alcanzó significancia.
+
+> **Nota:** Estos tamaños de efecto corresponden a comparaciones pre-post sin grupo control y solo en completadores — ambos factores inflan las estimaciones.
+
+---
+
+## 9. Significancia clínica (RCI)
+
+```{r rci}
+calcular_rci <- function(datos, col, alpha_c, etiqueta) {
+  pre  <- datos |> filter(sesion==0)  |> select(study_id, pre  = all_of(col))
+  post <- datos |> filter(sesion==10) |> select(study_id, post = all_of(col))
+  pares <- inner_join(pre, post, by="study_id") |> drop_na()
+  sd_pre  <- sd(pares$pre)
+  se_diff <- sd_pre * sqrt(2 * (1 - alpha_c))
+  pares |>
+    mutate(diferencia = post - pre,
+           SID = round(diferencia / sd_pre,  2),
+           RCI = round(diferencia / se_diff, 2),
+           Estado = case_when(
+             RCI < -1.96 ~ "Mejora confiable",
+             RCI >  1.96 ~ "Deterioro confiable",
+             TRUE        ~ "Sin cambio confiable"
+           ))
+}
+
+rci_core <- calcular_rci(df_pp, "core_media", alpha_core, "CORE-OM")
+rci_bai  <- calcular_rci(df_pp, "bai_total",  alpha_bai,  "BAI")
+```
+
+El Índice de Cambio Confiable (Jacobson & Truax, 1991) determina si el cambio individual supera el error de medición:
+
+$$RCI = \frac{post - pre}{SE_{diff}}, \quad SE_{diff} = SD_{pre} \cdot \sqrt{2(1-\alpha)}$$
+
+**CORE-OM** (SD_pre = `r round(sd(rci_core$pre),3)`, α = `r round(alpha_core,3)`, SE_diff = `r round(sd(rci_core$pre)*sqrt(2*(1-alpha_core)),3)`):
+
+```{r tabla-rci-core}
+rci_core |>
+  select(study_id, pre, post, SID, RCI, Estado) |>
+  mutate(study_id = paste0("P0", row_number())) |>
+  rename(Participante = study_id, Pre = pre, Post = post) |>
+  kable(caption = "RCI individual – CORE-OM") |>
+  kable_styling(bootstrap_options = c("striped","hover","condensed"), full_width = FALSE) |>
+  row_spec(which(rci_core$Estado == "Mejora confiable"), background = "#d4edda") |>
+  row_spec(which(rci_core$Estado == "Sin cambio confiable"), background = "#fff3cd")
+```
+
+**BAI** (SD_pre = `r round(sd(rci_bai$pre),3)`, α = `r round(alpha_bai,3)`): **`r sum(rci_bai$Estado == "Mejora confiable")`/9 completadores (100%) mostraron mejora confiable.** RCI van de `r round(min(rci_bai$RCI),2)` a `r round(max(rci_bai$RCI),2)`.
+
+### Figura RCI individual
+
+```{r fig-rci, fig.height=6}
+rci_plot    <- rci_core |> left_join(bl |> select(study_id, grupo), by="study_id")
+sd_pre_core <- sd(rci_plot$pre)
+se_diff_rci <- sd_pre_core * sqrt(2 * (1 - alpha_core))
+
+ggplot(rci_plot, aes(x=pre, y=post, color=Estado, shape=grupo)) +
+  geom_abline(intercept=0,                   slope=1, linetype="dashed",  color="gray60") +
+  geom_abline(intercept= 1.96*se_diff_rci,   slope=1, linetype="dotted", color="#1B7837", alpha=0.7) +
+  geom_abline(intercept=-1.96*se_diff_rci,   slope=1, linetype="dotted", color="#1B7837", alpha=0.7) +
+  geom_point(size=3.5) +
+  scale_color_manual(values = c(
+    "Mejora confiable"     = "#1B7837",
+    "Sin cambio confiable" = "#E08214",
+    "Deterioro confiable"  = "#D6604D")) +
+  scale_shape_manual(values = c("Grupo 0"=16, "Grupo 1"=17)) +
+  labs(title="Cambio individual pre–post: CORE-OM",
+       subtitle="Línea punteada = no cambio. Líneas verdes = umbral RCI (±1.96)",
+       x="CORE-OM pre", y="CORE-OM post", color="Estado", shape="Grupo") +
+  theme_minimal(base_size=12)
+```
+
+```{r fig-boxplot-core, fig.height=5}
+df_anal |>
+  filter(sesion %in% c(0,10), !is.na(core_media)) |>
+  mutate(Momento = factor(ifelse(sesion==0,"Pre","Post"), levels=c("Pre","Post"))) |>
+  ggplot(aes(x=Momento, y=core_media, fill=grupo)) +
+  geom_boxplot(alpha=0.5, outlier.shape=NA, width=0.4, position=position_dodge(0.6)) +
+  geom_point(aes(color=grupo), position=position_dodge(0.6), size=2, alpha=0.8) +
+  scale_fill_manual(values=colores) +
+  scale_color_manual(values=colores) +
+  labs(title="CORE-OM: distribución pre y post por grupo",
+       x="Momento", y="CORE-OM media", fill=NULL, color=NULL) +
+  theme_minimal(base_size=12) +
+  theme(legend.position="bottom")
+```
+
+---
+
+## 10. Análisis de subescalas
+
+### 10.1 Subescalas del CORE-OM
+
+```{r mlm-subescalas-core}
+r_wb <- correr_mlm(df_anal, "core_wellbeing", "CORE-OM Wellbeing – ITT")
+r_ps <- correr_mlm(df_anal, "core_problems",  "CORE-OM Problems – ITT")
+r_fn <- correr_mlm(df_anal, "core_function",  "CORE-OM Functioning – ITT")
+r_rk <- correr_mlm(df_anal, "core_risk",      "CORE-OM Risk – ITT")
+
+tabla_mlm(r_wb)
+tabla_mlm(r_ps)
+tabla_mlm(r_fn)
+tabla_mlm(r_rk)
+```
+
+El hallazgo más notable es el **efecto de grupo en Risk** (β = -0.571, p = .001): el Grupo 0 tenía niveles significativamente más altos de riesgo a lo largo de todo el tratamiento.
+
+### 10.2 LSAS: miedo vs. evitación (Ansiedad Social, n=9)
+
+```{r mlm-lsas}
+dg1 <- df_anal |> filter(dg == 1)
+r_lsas_m <- correr_mlm(dg1, "lsas_miedo_z",     "LSAS Miedo (z)")
+r_lsas_e <- correr_mlm(dg1, "lsas_evitacion_z", "LSAS Evitación (z)")
+
+tabla_mlm(r_lsas_m)
+tabla_mlm(r_lsas_e)
+```
+
+**La evitación mejora casi al doble de velocidad que el miedo** (β = −0.194 vs. −0.104 por sesión), y ambas alcanzan significancia estadística (evitación p < .001, miedo p = .041). Este patrón es consistente con que la evitación disminuye antes que la ansiedad o el miedo.
+
+```{r fig-lsas, fig.height=5}
+dg1 |>
+  filter(!is.na(lsas_miedo_z), !is.na(lsas_evitacion_z)) |>
+  select(study_id, sesion, grupo,
+         Miedo = lsas_miedo_z, Evitación = lsas_evitacion_z) |>
+  pivot_longer(c(Miedo, Evitación), names_to="Subescala", values_to="z") |>
+  group_by(sesion, Subescala) |>
+  summarise(M  = mean(z, na.rm=TRUE),
+            SE = sd(z,   na.rm=TRUE) / sqrt(n()), .groups="drop") |>
+  ggplot(aes(x=sesion, y=M, color=Subescala, fill=Subescala)) +
+  geom_hline(yintercept=0, linetype="dashed", color="gray50") +
+  geom_ribbon(aes(ymin=M-SE, ymax=M+SE), alpha=0.15) +
+  geom_line(linewidth=1.2) +
+  geom_point(size=2.5) +
+  scale_x_continuous(breaks=0:10, labels=etiquetas_sesion) +
+  scale_color_manual(values=c("Miedo"="#D6604D","Evitación"="#2166AC")) +
+  scale_fill_manual(values =c("Miedo"="#D6604D","Evitación"="#2166AC")) +
+  labs(title="LSAS: miedo vs. evitación (Ansiedad Social, n = 9)",
+       subtitle="Z-scores; 0 = media basal",
+       x="Sesión", y="Z-score", color=NULL, fill=NULL) +
+  theme_minimal(base_size=12)
+```
+
+---
+
+## 11. Satisfacción del cliente (CSQ-8)
+
+```{r csq}
+df_anal |>
+  filter(sesion==10, !is.na(csq_total)) |>
+  group_by(grupo) |>
+  summarise(n=n(), M=round(mean(csq_total),2), DE=round(sd(csq_total),2),
+            Min=min(csq_total), Max=max(csq_total), .groups="drop") |>
+  kable(caption="Satisfacción CSQ-8 (completadores; rango 8–32, mayor = más satisfecho)") |>
+  kable_styling(bootstrap_options=c("striped","hover","condensed"), full_width=FALSE)
+```
+
+La satisfacción promedio fue alta en ambos grupos (>85% del máximo posible). Con solo 3 completadores en Grupo 1, no es posible hacer comparaciones estadísticas.
+
+---
+
+## 12. Análisis de sensibilidad
+
+### 12.1 Imputación múltiple (MAR)
+
+```{r imputation, cache=TRUE}
+df_completo <- df_anal |>
+  select(study_id, sesion, randomization_group, dg, grupo,
+         core_media, bai_total, diag_z) |>
+  tidyr::complete(study_id, sesion = 0:10) |>
+  group_by(study_id) |>
+  mutate(
+    randomization_group = first(na.omit(randomization_group)),
+    dg    = first(na.omit(dg)),
+    grupo = first(na.omit(grupo))
+  ) |>
+  ungroup()
+
+imp2 <- mice(df_completo, m=20, method="pmm", maxit=10, seed=123, printFlag=FALSE)
+
+pool_core2 <- pool(with(imp2,
+  lmer(core_media ~ sesion + randomization_group +
+         sesion:randomization_group + (1|study_id), REML=FALSE)))
+
+pool_bai2  <- pool(with(imp2,
+  lmer(bai_total ~ sesion + randomization_group +
+         sesion:randomization_group + (1|study_id), REML=FALSE)))
+
+pool_diag2 <- pool(with(imp2,
+  lmer(diag_z ~ sesion + randomization_group +
+         sesion:randomization_group + (1|study_id), REML=FALSE)))
+
+beta_core_mice_z <- summary(pool_core2)$estimate[2] / s_core
+beta_bai_mice_z  <- summary(pool_bai2)$estimate[2]  / s_bai
+```
+
+```{r tabla-mar}
+tibble(
+  Outcome     = c("CORE-OM (convertido a z)","BAI (convertido a z)","Escala diagnóstica"),
+  `lmer original (z/sesión)` = c(
+    round(fixef(m_core_itt)["sesion"], 3),
+    round(fixef(m_bai_itt)["sesion"],  3),
+    round(fixef(m_diag_itt)["sesion"], 3)),
+  `mice MAR (z/sesión)` = c(
+    round(beta_core_mice_z, 3),
+    round(beta_bai_mice_z,  3),
+    round(summary(pool_diag2)$estimate[2], 3))
+) |>
+  kable(caption="Comparación β sesión: lmer original vs. imputación múltiple MAR") |>
+  kable_styling(bootstrap_options=c("striped","hover","condensed"), full_width=FALSE) |>
+  footnote(general="CORE-OM y BAI mice corren en escala original; se dividen por su DE basal (s_core = 0.40, s_bai = 12.06) para comparabilidad con los modelos en z.")
+```
+
+Los tres outcomes muestran alta robustez ante la deserción bajo el supuesto MAR. Los coeficientes son prácticamente idénticos entre el modelo original y la imputación múltiple: CORE-OM (−0.164 vs. −0.163), BAI (−0.132 vs. −0.120) y escala diagnóstica (−0.254 vs. −0.252). Todos mantienen significancia estadística (p < .001), lo que sugiere que los resultados no dependen críticamente del patrón de datos faltantes bajo MAR.
+
+### 12.2 Tipping Point (MNAR)
+
+```{r tipping-point}
+delta_core <- c(0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0)
+delta_bai  <- c(0, 2, 4, 6, 8, 10, 15)
+delta_diag <- c(0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0)
+
+tp_core <- map_dfr(delta_core, function(d) {
+  df_p <- df_completo |>
+    mutate(y = if_else(!is.na(core_media), core_media, m_core + d))
+  m    <- lmer(y ~ sesion + randomization_group + sesion:randomization_group +
+                 (1|study_id), data=df_p, REML=FALSE)
+  c_   <- summary(m)$coefficients
+  tibble(δ=d, β=round(c_["sesion","Estimate"],3), p=round(c_["sesion","Pr(>|t|)"],4))
+})
+
+tp_bai <- map_dfr(delta_bai, function(d) {
+  df_p <- df_completo |>
+    mutate(y = if_else(!is.na(bai_total), bai_total, m_bai + d))
+  m    <- lmer(y ~ sesion + randomization_group + sesion:randomization_group +
+                 (1|study_id), data=df_p, REML=FALSE)
+  c_   <- summary(m)$coefficients
+  tibble(δ=d, β=round(c_["sesion","Estimate"],3), p=round(c_["sesion","Pr(>|t|)"],4))
+})
+
+tp_diag <- map_dfr(delta_diag, function(d) {
+  df_p <- df_completo |>
+    mutate(y = if_else(!is.na(diag_z), diag_z, 0 + d))
+  m    <- lmer(y ~ sesion + randomization_group + sesion:randomization_group +
+                 (1|study_id), data=df_p, REML=FALSE)
+  c_   <- summary(m)$coefficients
+  tibble(δ=d, β=round(c_["sesion","Estimate"],3), p=round(c_["sesion","Pr(>|t|)"],4))
+})
+```
+
+```{r tablas-tipping}
+tp_core |>
+  kable(caption="Tipping Point – CORE-OM (δ en puntos de CORE-OM sobre la media basal)") |>
+  kable_styling(bootstrap_options=c("striped","hover","condensed"), full_width=FALSE) |>
+  row_spec(nrow(tp_core), bold=TRUE, background="#f8d7da")
+
+tp_bai |>
+  kable(caption=paste0("Tipping Point – BAI (δ en puntos BAI sobre la media basal = ",
+    round(m_bai,2), ")")) |>
+  kable_styling(bootstrap_options=c("striped","hover","condensed"), full_width=FALSE)
+
+tp_diag |>
+  kable(caption="Tipping Point – Escala diagnóstica (δ en unidades DE sobre la media basal = 0)") |>
+  kable_styling(bootstrap_options=c("striped","hover","condensed"), full_width=FALSE)
+```
+
+```{r fig-tipping, fig.height=5}
+bind_rows(
+  tp_core |> mutate(Outcome="CORE-OM", delta_norm = δ / 4),
+  tp_bai  |> mutate(Outcome="BAI",     delta_norm = δ / 63),
+  tp_diag |> mutate(Outcome="Escala diagnóstica", delta_norm = δ / 3)
+) |>
+  ggplot(aes(x=δ, y=p, color=Outcome)) +
+  geom_hline(yintercept=0.05, linetype="dashed", color="red", alpha=0.7) +
+  geom_line(linewidth=1.1) +
+  geom_point(size=2.5) +
+  facet_wrap(~Outcome, scales="free_x") +
+  labs(title="Análisis de Tipping Point por outcome",
+       subtitle="Línea roja = umbral p = .05",
+       x="δ (penalización sobre la media basal)", y="p-valor", color=NULL) +
+  theme_minimal(base_size=12) +
+  theme(legend.position="none")
+```
+
+El análisis de tipping point aborda una limitación del análisis MAR: ¿qué pasaría si los participantes que abandonaron no mejoraron, sino que empeoraron? Bajo el supuesto MNAR (Missing Not At Random), los datos faltantes no son aleatorios — los que abandonan podrían hacerlo precisamente porque no están mejorando. Para evaluar la robustez de los resultados ante este escenario, se imputa un valor pesimista para cada sesión faltante: la media basal de cada participante más un incremento δ (delta), que representa cuánto peor estarían los abandonos respecto a su nivel inicial. Se prueban distintos valores de δ, desde 0 (sin penalización, equivalente a MAR) hasta valores progresivamente más extremos, y se registra en qué punto el efecto del tiempo deja de ser estadísticamente significativo (p > .05). Un δ alto necesario para perder significancia indica un resultado robusto — significaría que los abandonos tendrían que haber empeorado de forma clínicamente implausible para que el efecto desaparezca.
+
+Los tres outcomes muestran alta robustez ante el escenario MNAR. El CORE-OM pierde significancia en δ = 2.0 puntos sobre la media basal, lo que equivale a un puntaje medio de ~3.90 sobre 4 — prácticamente el máximo de la escala, un escenario clínicamente implausible. El BAI se mantiene significativo incluso cuando se asume que los abandonos empeoraron 15 puntos sobre su media basal (p = .006), lo que representa un deterioro severo y sostenido. La escala diagnóstica mantiene significancia hasta δ = 2.0 desviaciones estándar sobre la media basal (p = .002), también un escenario extremo. En conjunto, los resultados son robustos ante supuestos MNAR razonables.
+
+---
+
+## 13. Discusión e implicancias
+
+### 13.1 Hallazgos principales
+
+Los resultados son consistentemente positivos en cuanto a cambio sintomático general. Los tres outcomes principales muestran mejorías estadísticamente significativas y clínicamente relevantes. El 88.9% de los completadores mostró mejora confiable en CORE-OM y el 100% en BAI por criterio RCI.
+
+No se encontró evidencia de eficacia diferencial entre los grupos en los outcomes primarios. La potencia estadística del piloto es insuficiente para descartar diferencias reales — se necesitan más participantes por grupo para detectar interacciones de tamaño moderado.
+
+### 13.2 Hallazgos secundarios relevantes
+
+El patrón de mejora diferencial en LSAS miedo vs. evitación es un hallazgo conceptualmente interesante. La evitación mejora casi al doble de velocidad que el miedo (β = −0.194 vs. −0.104 por sesión), y aunque ambas alcanzan significancia estadística (evitación p < .001, miedo p = .041), la magnitud del efecto es sustancialmente mayor para la evitación. Este patrón es consistente con la idea de que la evitación disminuye antes que la ansiedad o el miedo y justifica medir ambas subescalas por separado en el estudio completo.
+
+### 13.3 Deserción
+
+La tasa de 47.1% es alta y sistemática: mayor abandono en Grupo 1, concentrado en Ansiedad Social. El estudio completo podría incluir monitoreo activo de deserción diferencial. Ningún predictor basal alcanzó significancia estadística, aunque el BAI basal mostró una tendencia (p = .084) en dirección paradójica: los que completaron tenían más ansiedad al inicio (M = 34.22) que los que abandonaron (M = 23.86), lo que sugiere que la motivación para el cambio podría estar positivamente relacionada con la severidad inicial.
+
+---
+
+## 14. Limitaciones
+
+**Tamaño muestral reducido.** Con el N actual (9 completadores), todos los resultados son preliminares. Los intervalos de confianza son amplios y la potencia para detectar interacciones es muy baja.
+
+**Deserción diferencial.** El 47.1% de abandono, concentrado en un grupo y diagnóstico específico, compromete la validez interna de la comparación entre grupos.
+
+**STAI-R alpha moderado (.742).** La consistencia interna más baja de todos los instrumentos podría afectar la precisión de las estimaciones.
+
+---
+
+## 15. Análisis sugeridos para el estudio completo
+
+**Pre-registrados pendientes:**
+
+- Modelos de tres niveles (observaciones → participantes → terapeutas)
+- Efectos no lineales del tiempo (término cuadrático o curvas de crecimiento latente)
+- Análisis de mediación con bootstrapping
+- Análisis de moderación (género, diagnóstico, severidad basal, ACE-IQ)
+- Análisis de seguimiento a 6, 12 y 18 meses
+
+**Adicionales recomendados:**
+
+- Supervivencia/tiempo al abandono (Kaplan-Meier + Cox)
+
+En lugar de solo preguntar "¿completó el paciente o no?", analiza cuándo abandonó cada participante. Kaplan-Meier produce una curva que muestra la probabilidad de seguir en tratamiento semana a semana. Cox permite modelar qué variables predicen el momento del abandono (severidad basal, diagnóstico, grupo). Con el N actual no tiene sentido, pero con una mayor cantidad de participantes podría ser muy informativo — por ejemplo, si el abandono se concentra en las primeras 3 sesiones, eso tiene implicancias distintas que si ocurre al final.
+
+- Identificación de respondedores tempranos (≥20% reducción en S1-S2)
+
+Existe evidencia de que los pacientes que muestran mejoría rápida en las primeras 1-2 sesiones tienen mejores resultados al final. Se define un umbral — por ejemplo, 20-25% de reducción — y se compara el resultado final entre respondedores tempranos y tardíos. Es relevante para los tratamientos de exposición porque podría predecir quién se beneficiará en mayor medida.
+
+- Variabilidad intraindividual (DE within-person)
+
+En lugar de solo mirar la trayectoria promedio de cada persona, es posible calcular cuánto fluctúan sus puntajes sesión a sesión. Alguien que baja de 40 a 10 de forma monotónica es distinto a alguien que oscila entre 40 y 15 a lo largo del tratamiento. Alta variabilidad intraindividual podría indicar inestabilidad terapéutica o mayor sensibilidad a eventos externos. Se calcula la SD de los puntajes de cada participante a lo largo de sus sesiones y se usa como variable de resultado o moderador.
+
+- Análisis de dosis-respuesta con GAM
+
+Los modelos mixtos que usamos asumen que el cambio es lineal — cada sesión produce el mismo beneficio incremental. Un GAM (Generalized Additive Model) permite que la curva de cambio tenga cualquier forma, capturando por ejemplo un descenso rápido inicial que se aplana, o un período de plateau seguido de nueva mejoría. Con el N actual no hay datos suficientes para estimar curvas flexibles, pero con el estudio completo permitiría modelar la "dosis óptima" de tratamiento y si hay un punto de rendimientos decrecientes.
+
+---
+
+## 16. Notas técnicas y decisiones de scoring
+
+```{r tabla-invertidos, echo=FALSE}
+tibble::tribble(
+  ~Escala,   ~`Ítems invertidos`,                    ~Fórmula,
+  "STAI-E",  "1, 2, 5, 8, 10, 11, 15, 16, 19, 20", "3 − x",
+  "STAI-R",  "1, 6, 7, 10, 13, 16, 19",             "3 − x",
+  "CORE-OM", "3, 4, 7, 12, 19, 21, 31, 32",         "4 − x"
+) |>
+  kable(caption="Ítems invertidos por escala") |>
+  kable_styling(bootstrap_options=c("striped","hover","condensed"), full_width=FALSE)
+```
+
+```{r tabla-excluidos, echo=FALSE}
+tibble::tribble(
+  ~Escala,        ~`Ítem excluido`, ~Razón,
+  "BDI",          "bdi_s_2",        "Pregunta binaria de dieta",
+  "GAD",          "gad_8",          "No pertenece a la escala GAD-7 original",
+  "PAS",          "pas_u",          "Variable de caracterización, no de severidad",
+  "DSM-5 Phobia", "dsm5_phobia_0",  "Ítem categórico de tipo de fobia"
+) |>
+  kable(caption="Ítems excluidos del puntaje total") |>
+  kable_styling(bootstrap_options=c("striped","hover","condensed"), full_width=FALSE)
+```
+
+```{r tabla-subescalas-core, echo=FALSE}
+tibble::tribble(
+  ~Subescala,             ~Ítems,
+  "Subjective Well-being","4, 14, 17, 31",
+  "Problems/Symptoms",    "2, 5, 8, 11, 13, 15, 18, 20, 23, 27, 28, 30",
+  "Functioning",          "1, 3, 7, 10, 12, 19, 21, 25, 26, 29, 32, 33",
+  "Risk",                 "6, 9, 16, 22, 24, 34"
+) |>
+  kable(caption="Subescalas del CORE-OM") |>
+  kable_styling(bootstrap_options=c("striped","hover","condensed"), full_width=FALSE)
+```
+
+Las subescalas se calculan como **medias** (no sumas) para comparabilidad entre subescalas con distinto número de ítems.
+
+**Software:** R 4.5.1 con `tidyverse`, `lme4`, `lmerTest`, `psych`, `mice`, `patchwork`, `kableExtra`. Script completo disponible como `analisis_piloto_final.R`.
+
+---
+
+*Fin del reporte.*
